@@ -27,9 +27,11 @@ classifiers = [
 ]
 dependencies = []
 
+[project.optional-dependencies]
+llm = ["openai>=1.68.0"]
+
 [project.scripts]
 autonomy-score = "autonomy_score.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
-

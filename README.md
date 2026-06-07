@@ -45,6 +45,22 @@ Fail a CI step if the diff exceeds your autonomy threshold:
 autonomy-score --diff pr.diff --max-score 7
 ```
 
+Add an optional LLM second opinion:
+
+```bash
+python -m pip install -e ".[llm]"
+export OPENAI_API_KEY="sk-your-key"
+autonomy-score --diff examples/core-data-migration.diff --llm-analysis
+```
+
+On Windows PowerShell:
+
+```powershell
+python -m pip install -e ".[llm]"
+$env:OPENAI_API_KEY = "sk-your-key"
+python -m autonomy_score --diff examples\core-data-migration.diff --llm-analysis
+```
+
 ## Example Output
 
 ```text
@@ -90,6 +106,33 @@ autonomy-score --diff pr.diff --config autonomy-score.config.json
 
 See `autonomy-score.config.json` for the default shape. Teams can tune path terms and content terms to match their architecture.
 
+## Optional LLM Advisory Analysis
+
+The deterministic score is always the source of truth. If you pass `--llm-analysis`, the CLI asks an OpenAI-compatible model for a structured second opinion and adds an `llm_analysis` section to the output.
+
+The LLM cannot change `score`, `band`, or `recommended_mode`. It can only report:
+
+- agreement with the deterministic result
+- risk summary
+- missed risks
+- possible false positives
+- recommended human action
+- confidence
+
+Configuration:
+
+```bash
+autonomy-score --diff pr.diff --llm-analysis --llm-model gpt-4.1-mini
+```
+
+Environment variables:
+
+- `OPENAI_API_KEY`: required when `--llm-analysis` is used
+- `OPENAI_BASE_URL`: optional OpenAI-compatible endpoint
+- `AUTONOMY_SCORE_LLM_MODEL`: optional model default
+
+This project intentionally does not use Google ADK as a core dependency yet. ADK is compelling when you need workflow agents, tools, runners, sessions, and local runtime inspection, but this v1 CLI only needs a deterministic scorer plus an optional advisory review pass. See [Google ADK overview](https://adk.dev/get-started/about/) and [OpenAI Structured Outputs](https://developers.openai.com/api/docs/guides/structured-outputs).
+
 ## Development
 
 Run tests:
@@ -117,6 +160,7 @@ python -m autonomy_score --diff examples/core-data-migration.diff
 - Add per-language analyzers for Swift, TypeScript, and Python.
 - Add GitHub PR comments with the autonomy recommendation.
 - Calibrate scores against real agent success and rollback data.
+- Add a separate Google ADK demo once the project needs real multi-agent orchestration.
 - Support policy presets for startup, enterprise, regulated, and high-trust teams.
 
 ## License

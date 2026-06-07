@@ -26,3 +26,14 @@ Examples:
 - `payments`, `ledger`, and `entitlements` for SaaS billing.
 - `retrieval`, `tools`, and `evals` for AI systems.
 
+## Keep LLM analysis advisory
+
+The optional LLM analysis layer is a second opinion, not the scoring authority. It can explain disagreement, missed risks, and likely false positives, but it cannot mutate the deterministic score or recommended autonomy mode.
+
+This keeps the tool useful in CI and code review, where teams need stable policy decisions and audit-friendly output.
+
+## Defer Google ADK from the core package
+
+Google ADK provides useful primitives for larger multi-agent systems, including workflow agents, tools, runners, sessions, state, and developer tooling.
+
+For this repo, that would be premature. The core workflow is still a deterministic CLI with an optional model review pass. A separate ADK example can be added later without making every user install or understand an agent framework.

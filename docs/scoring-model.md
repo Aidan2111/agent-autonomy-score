@@ -39,3 +39,14 @@ The scorer does not build an AST and does not prove computational complexity. It
 
 That is deliberate for v0.1. A clear heuristic is easier to tune than a magical score nobody can explain.
 
+## LLM Advisory Layer
+
+When `--llm-analysis` is enabled, the deterministic score still owns the final recommendation. The model receives the diff and deterministic result, then returns structured advisory fields.
+
+Use this when a reviewer wants a second opinion on:
+
+- risks not represented by the heuristic terms
+- signals that may be false positives
+- the next human action before giving an agent more autonomy
+
+Do not use the LLM layer as the merge gate by itself.
