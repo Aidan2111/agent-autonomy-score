@@ -137,6 +137,34 @@ class CliTests(unittest.TestCase):
         self.assertEqual(stdout.getvalue(), "")
         self.assertIn("LLM analysis currently requires diff content", stderr.getvalue())
 
+    def test_large_diff_file_has_helpful_error(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "large.diff"
+            path.write_text("x" * (cli.MAX_DIFF_BYTES + 1), encoding="utf-8")
+            stdout = StringIO()
+            stderr = StringIO()
+            with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+                exit_code = cli.run(["--diff", str(path)])
+
+        self.assertEqual(exit_code, 2)
+        self.assertEqual(stdout.getvalue(), "")
+        self.assertIn("Diff input is too large", stderr.getvalue())
+
+    def test_markdown_output_handles_backticks_in_paths(self):
+        diff = """diff --git a/App/Views/Bad`Name.swift b/App/Views/Bad`Name.swift
+--- a/App/Views/Bad`Name.swift
++++ b/App/Views/Bad`Name.swift
+@@ -1,0 +1,2 @@
++Text("Hello")
+"""
+        with _temp_diff(diff) as diff_path:
+            stdout = StringIO()
+            with contextlib.redirect_stdout(stdout):
+                exit_code = cli.run(["--diff", str(diff_path), "--format", "markdown"])
+
+        self.assertEqual(exit_code, 0)
+        self.assertIn("`` App/Views/Bad`Name.swift ``", stdout.getvalue())
+
 
 @contextlib.contextmanager
 def _temp_diff(contents: str):

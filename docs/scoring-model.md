@@ -40,7 +40,7 @@ This matters because a diff only exists after work is done. Intent scoring decid
 | `intent:state-or-persistence` | +2 | State, storage, auth, cache, sync, and pipeline behavior usually carry larger failure modes than UI polish. |
 | `intent:algorithmic-risk` | +1 | Algorithmic and data-flow requests can hide complexity or performance risks. |
 | `intent:blast-radius` | +2 | Architecture, global, shared, core, or cross-cutting language implies broader impact. |
-| `intent:scope-unclear` | +1 | Vague requests without concrete files or components are harder to delegate safely. |
+| `intent:scope-unclear` | +3 | Vague requests without concrete files or components should start in guided autonomy. |
 | `intent:large-request` | +1 or +2 | Long task briefs often contain multiple behaviors or acceptance criteria. |
 | `intent:validation-not-mentioned` | +1 | Risky requests should mention tests, validation, or evaluation before autonomy increases. |
 | `intent:presentation-only-cap` | 0 | Copy, style, spacing, and simple UI surface work are capped at low risk unless stronger signals appear. |

@@ -107,6 +107,13 @@ diff --git a/App/Tests/SearchCacheTests.swift b/App/Tests/SearchCacheTests.swift
         self.assertEqual(result.recommended_mode, "Pair Programming")
         self.assertTrue(any(signal.name == "intent:critical-domain" for signal in result.signals))
 
+    def test_vague_bug_intent_requires_guidance(self):
+        result = score_intent("Fix bug")
+
+        self.assertGreaterEqual(result.score, 4)
+        self.assertEqual(result.recommended_mode, "Guided Autonomy")
+        self.assertTrue(any(signal.name == "intent:scope-unclear" for signal in result.signals))
+
     def test_combined_gate_uses_highest_risk(self):
         intent = score_intent("Update profile copy.")
         diff = """diff --git a/App/Persistence/Migrations/AddConversationIndexMigration.swift b/App/Persistence/Migrations/AddConversationIndexMigration.swift

@@ -432,7 +432,7 @@ def score_intent(intent_text: str, config: dict[str, object] | None = None) -> I
         signals.append(
             Signal(
                 "intent:scope-unclear",
-                1,
+                3,
                 "Request uses broad goal language without naming concrete files or components.",
                 vague_matches,
             )

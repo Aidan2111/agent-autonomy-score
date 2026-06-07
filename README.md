@@ -151,6 +151,8 @@ autonomy-score --diff pr.diff --config autonomy-score.config.json
 
 See `autonomy-score.config.json` for the default shape. Teams can tune path terms and content terms to match their architecture.
 
+For CI safety, the CLI bounds local input size by default: intent files are limited to 100 KB and diff inputs are limited to 2 MB. If a pull request is larger than that, treat it as a manual review event instead of asking the autonomy scorer to bless it.
+
 ## Optional LLM Advisory Analysis
 
 The deterministic score is always the source of truth. If you pass `--llm-analysis`, the CLI asks an OpenAI-compatible model for a structured second opinion and adds an `llm_analysis` section to the output.

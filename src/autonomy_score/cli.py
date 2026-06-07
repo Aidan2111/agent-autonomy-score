@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+import re
 import subprocess
 import sys
 
@@ -23,6 +24,13 @@ from .scoring import (
     score_change,
     score_intent,
 )
+
+MAX_DIFF_BYTES = 2_000_000
+MAX_INTENT_BYTES = 100_000
+
+
+class InputTooLargeError(ValueError):
+    pass
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -68,8 +76,13 @@ def run(argv: list[str] | None = None, llm_provider: LlmProvider | None = None) 
     )
     args = parser.parse_args(argv)
 
-    intent_text = _read_intent(args)
-    diff_text = _read_diff(args, has_intent_input=bool(intent_text))
+    try:
+        intent_text = _read_intent(args)
+        diff_text = _read_diff(args, has_intent_input=bool(intent_text))
+    except InputTooLargeError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
+
     if not diff_text.strip() and not intent_text.strip():
         print(
             "No intent or diff content found. Pass --intent, --intent-text, --diff, pipe a diff on stdin, "
@@ -121,36 +134,63 @@ def run(argv: list[str] | None = None, llm_provider: LlmProvider | None = None) 
 def _read_intent(args: argparse.Namespace) -> str:
     parts: list[str] = []
     if args.intent:
-        parts.append(args.intent.read_text(encoding="utf-8"))
+        parts.append(_read_limited_file(args.intent, MAX_INTENT_BYTES, "intent"))
     if args.intent_text:
+        _ensure_within_limit(args.intent_text, MAX_INTENT_BYTES, "intent")
         parts.append(args.intent_text)
     return "\n\n".join(parts)
 
 
 def _read_diff(args: argparse.Namespace, has_intent_input: bool = False) -> str:
     if args.diff:
-        return args.diff.read_text(encoding="utf-8")
+        return _read_limited_file(args.diff, MAX_DIFF_BYTES, "diff")
     if args.base:
         return _git_diff([args.base, "--"])
     if args.staged:
         return _git_diff(["--cached"])
     if not sys.stdin.isatty():
-        return sys.stdin.read()
+        diff_text = sys.stdin.read(MAX_DIFF_BYTES + 1)
+        _ensure_within_limit(diff_text, MAX_DIFF_BYTES, "diff")
+        return diff_text
     if has_intent_input:
         return ""
     return _git_diff([])
 
 
 def _git_diff(extra_args: list[str]) -> str:
-    completed = subprocess.run(
+    process = subprocess.Popen(
         ["git", "diff", "--unified=3", *extra_args],
-        check=False,
-        capture_output=True,
-        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
     )
-    if completed.returncode != 0:
+    if process.stdout is None:
         return ""
-    return completed.stdout
+    output = process.stdout.read(MAX_DIFF_BYTES + 1)
+    if len(output) > MAX_DIFF_BYTES:
+        process.kill()
+        process.wait()
+        raise InputTooLargeError(
+            f"Diff input is too large. Limit is {MAX_DIFF_BYTES} bytes; use a smaller diff or tune the workflow."
+        )
+    return_code = process.wait()
+    if return_code != 0:
+        return ""
+    return output.decode("utf-8", errors="replace")
+
+
+def _read_limited_file(path: Path, max_bytes: int, label: str) -> str:
+    size = path.stat().st_size
+    if size > max_bytes:
+        raise InputTooLargeError(
+            f"{label.title()} input is too large. Limit is {max_bytes} bytes, got {size} bytes: {path}"
+        )
+    return path.read_text(encoding="utf-8")
+
+
+def _ensure_within_limit(text: str, max_bytes: int, label: str) -> None:
+    size = len(text.encode("utf-8"))
+    if size > max_bytes:
+        raise InputTooLargeError(f"{label.title()} input is too large. Limit is {max_bytes} bytes, got {size} bytes.")
 
 
 def _format_result(result: ScoreResult, output_format: str, llm_analysis: LlmAnalysis | None = None) -> str:
@@ -371,11 +411,30 @@ def _format_signal_text(signal, detail_label: str) -> str:
 
 def _format_signal_markdown(signal, detail_label: str) -> str:
     prefix = f"+{signal.points}" if signal.points else "cap"
-    details = f" {detail_label.title()}: `{', '.join(signal.files)}`." if signal.files else ""
-    return f"- **{prefix} {signal.name}:** {signal.reason}{details}"
+    details = f" {detail_label.title()}: {_format_code_items(signal.files)}." if signal.files else ""
+    return f"- **{prefix} {_escape_markdown_text(signal.name)}:** {_escape_markdown_text(signal.reason)}{details}"
 
 
 def _format_inline_items(items: tuple[str, ...]) -> str:
     if not items:
         return "None"
-    return "; ".join(items)
+    return "; ".join(_escape_markdown_table_cell(item) for item in items)
+
+
+def _format_code_items(items: tuple[str, ...]) -> str:
+    return ", ".join(_format_code_item(item) for item in items)
+
+
+def _format_code_item(value: str) -> str:
+    longest_tick_run = max((len(match.group(0)) for match in re.finditer(r"`+", value)), default=0)
+    delimiter = "`" * (longest_tick_run + 1)
+    padding = " " if longest_tick_run else ""
+    return f"{delimiter}{padding}{value}{padding}{delimiter}"
+
+
+def _escape_markdown_table_cell(value: str) -> str:
+    return _escape_markdown_text(value).replace("|", "\\|")
+
+
+def _escape_markdown_text(value: str) -> str:
+    return value.replace("\\", "\\\\").replace("[", "\\[").replace("]", "\\]")
