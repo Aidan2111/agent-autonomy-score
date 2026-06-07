@@ -76,6 +76,8 @@ The default model is conservative, but not universal. Adjust it by team and doma
 - Mobile apps may treat persistence, keychain, sync, and migration code as high risk.
 - AI-heavy products may add terms for prompt policy, evaluation, retrieval, and tool execution.
 
+When using a custom config in CI, load it from a protected source. A pull request should not be able to weaken the scoring policy used to evaluate that same pull request.
+
 ## Known Limits
 
 The scorer does not build an AST and does not prove computational complexity. It uses path, content, and task-language heuristics to decide when a human should take a closer look.
