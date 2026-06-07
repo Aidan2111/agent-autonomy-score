@@ -87,6 +87,56 @@ class CliTests(unittest.TestCase):
         self.assertEqual(stdout.getvalue(), "")
         self.assertIn("OPENAI_API_KEY is required", stderr.getvalue())
 
+    def test_intent_only_json_output_scores_pre_work_request(self):
+        stdout = StringIO()
+        with contextlib.redirect_stdout(stdout):
+            exit_code = cli.run(
+                [
+                    "--intent-text",
+                    "Migrate Core Data schema and update auth token persistence for production users.",
+                    "--format",
+                    "json",
+                ]
+            )
+
+        self.assertEqual(exit_code, 0)
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(payload["recommended_mode"], "Pair Programming")
+        self.assertIn("word_count", payload)
+        self.assertNotIn("changed_files", payload)
+
+    def test_combined_gate_json_uses_highest_score(self):
+        with _temp_diff(SAMPLE_DIFF) as diff_path:
+            stdout = StringIO()
+            with contextlib.redirect_stdout(stdout):
+                exit_code = cli.run(
+                    [
+                        "--intent-text",
+                        "Update profile copy.",
+                        "--diff",
+                        str(diff_path),
+                        "--format",
+                        "json",
+                    ]
+                )
+
+        self.assertEqual(exit_code, 0)
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(payload["score"], payload["diff"]["score"])
+        self.assertIn("intent", payload)
+        self.assertIn("diff", payload)
+        self.assertEqual(payload["recommended_mode"], "Guided Autonomy")
+
+    def test_intent_only_llm_flag_has_helpful_error(self):
+        stdout = StringIO()
+        stderr = StringIO()
+        with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+            exit_code = cli.run(["--intent-text", "Update profile copy.", "--llm-analysis"])
+
+        self.assertEqual(exit_code, 2)
+        self.assertEqual(stdout.getvalue(), "")
+        self.assertIn("LLM analysis currently requires diff content", stderr.getvalue())
+
 
 @contextlib.contextmanager
 def _temp_diff(contents: str):

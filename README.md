@@ -1,10 +1,10 @@
 # Agent Autonomy Score
 
-A lightweight scoring tool for deciding how much supervision AI coding agents need before they are allowed to write code and open a pull request.
+A lightweight scoring tool for deciding how much supervision AI coding agents need before and after they write code.
 
 The premise is simple: not every code change deserves the same agent workflow. A SwiftUI copy tweak and a Core Data migration should not pass through the same autonomy gate.
 
-This repo turns that idea into a small, inspectable CLI that scores a diff from 1 to 10 and recommends one of three modes:
+This repo turns that idea into a small, inspectable CLI that scores an implementation intent, a code diff, or both from 1 to 10 and recommends one of three modes:
 
 | Score | Band | Recommended mode |
 | --- | --- | --- |
@@ -18,6 +18,7 @@ AI agents are getting good enough to handle real implementation work, but teams 
 
 This project uses old-school engineering signals as a first pass:
 
+- Intent risk before work: task wording that points to auth, persistence, migrations, broad refactors, unclear scope, or missing validation.
 - Big O risk: nested iteration and algorithm-heavy changes.
 - Cyclomatic complexity proxy: broad diffs, directory spread, and branching-sensitive areas.
 - Blast radius: state, persistence, auth, pipeline, cache, billing, and migration code.
@@ -26,6 +27,12 @@ This project uses old-school engineering signals as a first pass:
 
 The model is intentionally heuristic. It is a guardrail for agentic SDLC systems, not a replacement for code review.
 
+The key distinction:
+
+- Intent scoring happens before work starts. It predicts how much autonomy an agent should get.
+- Diff scoring happens after work is done. It verifies what the agent actually changed.
+- Gate scoring uses both. The higher risk wins.
+
 ## Quick Start
 
 ```bash
@@ -33,10 +40,22 @@ python -m pip install -e .
 autonomy-score --diff examples/swiftui-copy-change.diff
 ```
 
+Score a feature request before an agent starts coding:
+
+```bash
+autonomy-score --intent examples/intent-core-data-migration.txt
+```
+
 Score a pull request diff in an existing repo:
 
 ```bash
 git diff --unified=3 origin/main...HEAD | autonomy-score --format markdown
+```
+
+Score the original intent and the final diff together:
+
+```bash
+autonomy-score --intent examples/intent-swiftui-copy.txt --diff examples/core-data-migration.diff
 ```
 
 Fail a CI step if the diff exceeds your autonomy threshold:
@@ -88,10 +107,36 @@ High Risk, 8-10:
 
 Keep the human actively in the loop. The agent can inspect, draft, test, and explain, but should not drive the implementation alone.
 
+## Before And After Work
+
+Use intent scoring at issue triage time:
+
+```bash
+autonomy-score --intent issue.txt --max-score 3
+```
+
+That answers: "Can an agent start this unsupervised?"
+
+Use diff scoring once code exists:
+
+```bash
+autonomy-score --diff pr.diff --max-score 7
+```
+
+That answers: "How much human review does this PR need?"
+
+Use both when you have the original request and the final implementation:
+
+```bash
+autonomy-score --intent issue.txt --diff pr.diff --format markdown
+```
+
+That answers: "Did the implementation stay inside the autonomy envelope?" If the intent looked low-risk but the diff touches persistence, auth, migrations, or broad architecture, the gate score rises to the diff score.
+
 ## Repo Tour
 
 - `src/autonomy_score/`: CLI, diff parser, and scoring model.
-- `examples/`: sample diffs that demonstrate low, medium, and high risk.
+- `examples/`: sample intents and diffs that demonstrate low, medium, and high risk.
 - `docs/scoring-model.md`: scoring rules and calibration notes.
 - `docs/case-study.md`: product and engineering framing behind the project.
 - `.github/workflows/autonomy-score.yml`: example GitHub Actions integration.

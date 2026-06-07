@@ -14,7 +14,15 @@ from .llm import (
     LlmProvider,
     OpenAICompatibleProvider,
 )
-from .scoring import ScoreResult, load_config, score_change
+from .scoring import (
+    GateResult,
+    IntentScoreResult,
+    ScoreResult,
+    combine_intent_and_diff,
+    load_config,
+    score_change,
+    score_intent,
+)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -24,8 +32,10 @@ def main(argv: list[str] | None = None) -> int:
 def run(argv: list[str] | None = None, llm_provider: LlmProvider | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="autonomy-score",
-        description="Score a code diff to recommend an AI-agent autonomy level.",
+        description="Score an implementation intent, code diff, or both to recommend an AI-agent autonomy level.",
     )
+    parser.add_argument("--intent", type=Path, help="Path to a feature request, bug report, or task brief.")
+    parser.add_argument("--intent-text", help="Inline feature request, bug report, or task brief.")
     parser.add_argument("--diff", type=Path, help="Path to a unified diff file.")
     parser.add_argument("--base", help="Git base ref to diff against, such as origin/main.")
     parser.add_argument("--staged", action="store_true", help="Score staged git changes.")
@@ -58,33 +68,66 @@ def run(argv: list[str] | None = None, llm_provider: LlmProvider | None = None) 
     )
     args = parser.parse_args(argv)
 
-    diff_text = _read_diff(args)
-    if not diff_text.strip():
-        print("No diff content found. Pass --diff, pipe a diff on stdin, or run inside a git repo.")
+    intent_text = _read_intent(args)
+    diff_text = _read_diff(args, has_intent_input=bool(intent_text))
+    if not diff_text.strip() and not intent_text.strip():
+        print(
+            "No intent or diff content found. Pass --intent, --intent-text, --diff, pipe a diff on stdin, "
+            "or run inside a git repo."
+        )
         return 2
 
-    changed_files = parse_unified_diff(diff_text)
-    result = score_change(changed_files, load_config(args.config))
+    config = load_config(args.config)
+    intent_result = score_intent(intent_text, config) if intent_text.strip() else None
+    diff_result = None
+    if diff_text.strip():
+        diff_result = score_change(parse_unified_diff(diff_text), config)
+
     llm_analysis = None
     if args.llm_analysis:
+        if diff_result is None:
+            print("LLM analysis currently requires diff content; pass --diff, --base, --staged, or pipe a diff.", file=sys.stderr)
+            return 2
         try:
             provider = llm_provider or OpenAICompatibleProvider.from_env(
                 model=args.llm_model,
                 base_url=args.llm_base_url,
             )
-            llm_analysis = provider.analyze(diff_text, result)
+            llm_analysis = provider.analyze(diff_text, diff_result)
         except LlmAnalysisError as exc:
             print(f"LLM analysis failed: {exc}", file=sys.stderr)
             return 2
 
-    print(_format_result(result, args.format, llm_analysis))
+    if intent_result and diff_result:
+        result: ScoreResult | IntentScoreResult | GateResult = combine_intent_and_diff(intent_result, diff_result)
+        output = _format_gate_result(result, args.format, llm_analysis)
+    elif intent_result:
+        result = intent_result
+        output = _format_intent_result(intent_result, args.format)
+    elif diff_result:
+        result = diff_result
+        output = _format_result(diff_result, args.format, llm_analysis)
+    else:
+        print("No scorable content found.")
+        return 2
+
+    print(output)
 
     if args.max_score is not None and result.score > args.max_score:
         return 1
     return 0
 
 
-def _read_diff(args: argparse.Namespace) -> str:
+def _read_intent(args: argparse.Namespace) -> str:
+    parts: list[str] = []
+    if args.intent:
+        parts.append(args.intent.read_text(encoding="utf-8"))
+    if args.intent_text:
+        parts.append(args.intent_text)
+    return "\n\n".join(parts)
+
+
+def _read_diff(args: argparse.Namespace, has_intent_input: bool = False) -> str:
     if args.diff:
         return args.diff.read_text(encoding="utf-8")
     if args.base:
@@ -93,6 +136,8 @@ def _read_diff(args: argparse.Namespace) -> str:
         return _git_diff(["--cached"])
     if not sys.stdin.isatty():
         return sys.stdin.read()
+    if has_intent_input:
+        return ""
     return _git_diff([])
 
 
@@ -119,6 +164,25 @@ def _format_result(result: ScoreResult, output_format: str, llm_analysis: LlmAna
     return _format_text(result, llm_analysis)
 
 
+def _format_intent_result(result: IntentScoreResult, output_format: str) -> str:
+    if output_format == "json":
+        return json.dumps(result.to_dict(), indent=2, sort_keys=True)
+    if output_format == "markdown":
+        return _format_intent_markdown(result)
+    return _format_intent_text(result)
+
+
+def _format_gate_result(result: GateResult, output_format: str, llm_analysis: LlmAnalysis | None = None) -> str:
+    if output_format == "json":
+        data = result.to_dict()
+        if llm_analysis:
+            data["llm_analysis"] = llm_analysis.to_dict()
+        return json.dumps(data, indent=2, sort_keys=True)
+    if output_format == "markdown":
+        return _format_gate_markdown(result, llm_analysis)
+    return _format_gate_text(result, llm_analysis)
+
+
 def _format_text(result: ScoreResult, llm_analysis: LlmAnalysis | None = None) -> str:
     lines = [
         f"Autonomy Score: {result.score}/10 ({result.band})",
@@ -132,9 +196,50 @@ def _format_text(result: ScoreResult, llm_analysis: LlmAnalysis | None = None) -
     if not result.signals:
         lines.append("- No risk signals detected beyond the base score.")
     for signal in result.signals:
-        prefix = f"+{signal.points}" if signal.points else "cap"
-        files = f" [{', '.join(signal.files)}]" if signal.files else ""
-        lines.append(f"- {prefix} {signal.name}: {signal.reason}{files}")
+        lines.append(_format_signal_text(signal, "files"))
+    if llm_analysis:
+        lines.extend(_format_llm_text(llm_analysis))
+    return "\n".join(lines)
+
+
+def _format_intent_text(result: IntentScoreResult) -> str:
+    lines = [
+        f"Intent Autonomy Score: {result.score}/10 ({result.band})",
+        f"Recommended mode: {result.recommended_mode}",
+        f"Summary: {result.summary}",
+        f"Words: {result.word_count}",
+    ]
+    if result.mentioned_paths:
+        lines.append(f"Mentioned paths: {', '.join(result.mentioned_paths)}")
+    lines.extend(["", "Signals:"])
+    if not result.signals:
+        lines.append("- No risk signals detected beyond the base score.")
+    for signal in result.signals:
+        lines.append(_format_signal_text(signal, "terms"))
+    return "\n".join(lines)
+
+
+def _format_gate_text(result: GateResult, llm_analysis: LlmAnalysis | None = None) -> str:
+    lines = [
+        f"Autonomy Gate Score: {result.score}/10 ({result.band})",
+        f"Recommended mode: {result.recommended_mode}",
+        f"Decision rule: {result.decision_rule}",
+        f"Summary: {result.summary}",
+        "",
+        f"Intent score: {result.intent.score}/10 ({result.intent.band})",
+        f"Diff score: {result.diff.score}/10 ({result.diff.band})",
+        "",
+        "Intent signals:",
+    ]
+    if not result.intent.signals:
+        lines.append("- No risk signals detected beyond the base score.")
+    for signal in result.intent.signals:
+        lines.append(_format_signal_text(signal, "terms"))
+    lines.extend(["", "Diff signals:"])
+    if not result.diff.signals:
+        lines.append("- No risk signals detected beyond the base score.")
+    for signal in result.diff.signals:
+        lines.append(_format_signal_text(signal, "files"))
     if llm_analysis:
         lines.extend(_format_llm_text(llm_analysis))
     return "\n".join(lines)
@@ -161,9 +266,63 @@ def _format_markdown(result: ScoreResult, llm_analysis: LlmAnalysis | None = Non
     if not result.signals:
         lines.append("- No risk signals detected beyond the base score.")
     for signal in result.signals:
-        prefix = f"+{signal.points}" if signal.points else "cap"
-        files = f" Files: `{', '.join(signal.files)}`." if signal.files else ""
-        lines.append(f"- **{prefix} {signal.name}:** {signal.reason}{files}")
+        lines.append(_format_signal_markdown(signal, "files"))
+    if llm_analysis:
+        lines.extend(_format_llm_markdown(llm_analysis))
+    return "\n".join(lines)
+
+
+def _format_intent_markdown(result: IntentScoreResult) -> str:
+    lines = [
+        "## Intent Autonomy Score",
+        "",
+        f"**Score:** {result.score}/10 ({result.band})",
+        f"**Recommended mode:** {result.recommended_mode}",
+        "",
+        result.summary,
+        "",
+        "| Metric | Value |",
+        "| --- | --- |",
+        f"| Words | {result.word_count} |",
+        f"| Mentioned paths | {_format_inline_items(result.mentioned_paths)} |",
+        "",
+        "### Signals",
+        "",
+    ]
+    if not result.signals:
+        lines.append("- No risk signals detected beyond the base score.")
+    for signal in result.signals:
+        lines.append(_format_signal_markdown(signal, "terms"))
+    return "\n".join(lines)
+
+
+def _format_gate_markdown(result: GateResult, llm_analysis: LlmAnalysis | None = None) -> str:
+    lines = [
+        "## Autonomy Gate Score",
+        "",
+        f"**Score:** {result.score}/10 ({result.band})",
+        f"**Recommended mode:** {result.recommended_mode}",
+        f"**Decision rule:** {result.decision_rule}",
+        "",
+        result.summary,
+        "",
+        "| Pass | Score | Band |",
+        "| --- | ---: | --- |",
+        f"| Intent | {result.intent.score}/10 | {result.intent.band} |",
+        f"| Diff | {result.diff.score}/10 | {result.diff.band} |",
+        "",
+        "### Intent Signals",
+        "",
+    ]
+    if not result.intent.signals:
+        lines.append("- No risk signals detected beyond the base score.")
+    for signal in result.intent.signals:
+        lines.append(_format_signal_markdown(signal, "terms"))
+    lines.extend(["", "### Diff Signals", ""])
+    if not result.diff.signals:
+        lines.append("- No risk signals detected beyond the base score.")
+    for signal in result.diff.signals:
+        lines.append(_format_signal_markdown(signal, "files"))
     if llm_analysis:
         lines.extend(_format_llm_markdown(llm_analysis))
     return "\n".join(lines)
@@ -202,6 +361,18 @@ def _format_text_items(items: tuple[str, ...]) -> list[str]:
     if not items:
         return ["  - None"]
     return [f"  - {item}" for item in items]
+
+
+def _format_signal_text(signal, detail_label: str) -> str:
+    prefix = f"+{signal.points}" if signal.points else "cap"
+    details = f" [{detail_label}: {', '.join(signal.files)}]" if signal.files else ""
+    return f"- {prefix} {signal.name}: {signal.reason}{details}"
+
+
+def _format_signal_markdown(signal, detail_label: str) -> str:
+    prefix = f"+{signal.points}" if signal.points else "cap"
+    details = f" {detail_label.title()}: `{', '.join(signal.files)}`." if signal.files else ""
+    return f"- **{prefix} {signal.name}:** {signal.reason}{details}"
 
 
 def _format_inline_items(items: tuple[str, ...]) -> str:

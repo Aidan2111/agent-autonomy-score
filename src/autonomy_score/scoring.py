@@ -44,6 +44,56 @@ class ScoreResult:
         return json.dumps(self.to_dict(), indent=2, sort_keys=True)
 
 
+@dataclass(frozen=True)
+class IntentScoreResult:
+    score: int
+    band: str
+    recommended_mode: str
+    summary: str
+    signals: tuple[Signal, ...]
+    word_count: int
+    mentioned_paths: tuple[str, ...]
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "score": self.score,
+            "band": self.band,
+            "recommended_mode": self.recommended_mode,
+            "summary": self.summary,
+            "signals": [asdict(signal) for signal in self.signals],
+            "word_count": self.word_count,
+            "mentioned_paths": list(self.mentioned_paths),
+        }
+
+    def to_json(self) -> str:
+        return json.dumps(self.to_dict(), indent=2, sort_keys=True)
+
+
+@dataclass(frozen=True)
+class GateResult:
+    score: int
+    band: str
+    recommended_mode: str
+    summary: str
+    decision_rule: str
+    intent: IntentScoreResult
+    diff: ScoreResult
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "score": self.score,
+            "band": self.band,
+            "recommended_mode": self.recommended_mode,
+            "summary": self.summary,
+            "decision_rule": self.decision_rule,
+            "intent": self.intent.to_dict(),
+            "diff": self.diff.to_dict(),
+        }
+
+    def to_json(self) -> str:
+        return json.dumps(self.to_dict(), indent=2, sort_keys=True)
+
+
 DEFAULT_CONFIG: dict[str, object] = {
     "presentation_path_terms": [
         "view",
@@ -116,10 +166,82 @@ DEFAULT_CONFIG: dict[str, object] = {
         "backoff",
         "rate limit",
     ],
+    "intent_high_risk_terms": [
+        "auth",
+        "authorization",
+        "permission",
+        "security",
+        "token",
+        "secret",
+        "encryption",
+        "payment",
+        "billing",
+        "invoice",
+        "migration",
+        "schema",
+        "database",
+        "core data",
+        "coredata",
+        "persistence",
+        "delete",
+        "destructive",
+        "backfill",
+        "production data",
+        "state machine",
+        "concurrency",
+        "transaction",
+        "rollback",
+    ],
+    "intent_blast_radius_terms": [
+        "architecture",
+        "platform",
+        "global",
+        "shared",
+        "core",
+        "cross-cutting",
+        "cross cutting",
+        "entire app",
+        "all screens",
+        "all users",
+        "refactor",
+        "rewrite",
+        "pipeline",
+        "sync",
+        "cache",
+        "infrastructure",
+    ],
+    "intent_vague_terms": [
+        "fix bug",
+        "bug fix",
+        "improve",
+        "optimize",
+        "make better",
+        "cleanup",
+        "clean up",
+        "stabilize",
+        "harden",
+    ],
+    "intent_presentation_terms": [
+        "copy",
+        "label",
+        "text",
+        "style",
+        "color",
+        "spacing",
+        "padding",
+        "font",
+        "view",
+        "button",
+        "screen",
+        "preview",
+        "swiftui",
+        "css",
+    ],
     "test_path_terms": ["test", "tests", "spec", "specs"],
 }
 
 LOOP_RE = re.compile(r"\b(for|while|repeat)\b|\.map\s*\{|\.flatMap\s*\{|\.filter\s*\{")
+PATH_RE = re.compile(r"\b[\w.-]+(?:/[\w.-]+)+\.[A-Za-z0-9]+\b")
 
 
 def score_change(
@@ -253,6 +375,146 @@ def score_change(
     )
 
 
+def score_intent(intent_text: str, config: dict[str, object] | None = None) -> IntentScoreResult:
+    active_config = {**DEFAULT_CONFIG, **(config or {})}
+    normalized = _normalize_text(intent_text)
+    words = re.findall(r"\b[\w'-]+\b", intent_text)
+    word_count = len(words)
+    mentioned_paths = tuple(dict.fromkeys(PATH_RE.findall(intent_text.replace("\\", "/"))))
+    signals: list[Signal] = []
+
+    high_risk_matches = _matching_terms(normalized, _as_strings(active_config["intent_high_risk_terms"]))
+    if high_risk_matches:
+        signals.append(
+            Signal(
+                "intent:critical-domain",
+                3,
+                "Request mentions security, data, migration, billing, destructive, or concurrency-sensitive work.",
+                high_risk_matches,
+            )
+        )
+
+    state_matches = _matching_terms(normalized, _as_strings(active_config["state_path_terms"]))
+    if state_matches:
+        signals.append(
+            Signal(
+                "intent:state-or-persistence",
+                2,
+                "Request appears to touch state, persistence, auth, cache, sync, or pipeline behavior.",
+                state_matches,
+            )
+        )
+
+    algorithm_matches = _matching_terms(normalized, _as_strings(active_config["algorithm_terms"]))
+    if algorithm_matches:
+        signals.append(
+            Signal(
+                "intent:algorithmic-risk",
+                1,
+                "Request mentions algorithmic, batching, streaming, retry, or data-flow behavior.",
+                algorithm_matches,
+            )
+        )
+
+    blast_radius_matches = _matching_terms(normalized, _as_strings(active_config["intent_blast_radius_terms"]))
+    if blast_radius_matches:
+        signals.append(
+            Signal(
+                "intent:blast-radius",
+                2,
+                "Request implies broad architectural, shared, global, or cross-cutting impact.",
+                blast_radius_matches,
+            )
+        )
+
+    vague_matches = _matching_terms(normalized, _as_strings(active_config["intent_vague_terms"]))
+    if vague_matches and not mentioned_paths:
+        signals.append(
+            Signal(
+                "intent:scope-unclear",
+                1,
+                "Request uses broad goal language without naming concrete files or components.",
+                vague_matches,
+            )
+        )
+
+    if word_count >= 80:
+        signals.append(
+            Signal(
+                "intent:large-request",
+                1 if word_count < 180 else 2,
+                f"Request has {word_count} words, which often means multiple behaviors or acceptance criteria.",
+            )
+        )
+
+    test_terms = ("test", "tests", "spec", "coverage", "validation", "verify", "eval", "evaluation")
+    risky = bool(high_risk_matches or state_matches or algorithm_matches or blast_radius_matches)
+    if risky and not _matching_terms(normalized, test_terms):
+        signals.append(
+            Signal(
+                "intent:validation-not-mentioned",
+                1,
+                "Risky request does not mention tests, validation, or evaluation.",
+            )
+        )
+
+    presentation_matches = _matching_terms(normalized, _as_strings(active_config["intent_presentation_terms"]))
+    presentation_only = bool(presentation_matches) and not risky
+
+    raw_score = 1 + sum(signal.points for signal in signals)
+    if presentation_only:
+        raw_score = min(raw_score, 3)
+        signals.append(
+            Signal(
+                "intent:presentation-only-cap",
+                0,
+                "Request appears limited to presentation, copy, style, or UI surface polish.",
+                presentation_matches,
+            )
+        )
+
+    score = max(1, min(10, raw_score))
+    band, mode, summary = _band_for_score(score)
+
+    return IntentScoreResult(
+        score=score,
+        band=band,
+        recommended_mode=mode,
+        summary=summary,
+        signals=tuple(signals),
+        word_count=word_count,
+        mentioned_paths=mentioned_paths,
+    )
+
+
+def combine_intent_and_diff(intent: IntentScoreResult, diff: ScoreResult) -> GateResult:
+    score = max(intent.score, diff.score)
+    band, mode, _ = _band_for_score(score)
+    decision_rule = "highest risk wins across pre-work intent and post-work diff"
+    if intent.score > diff.score:
+        summary = (
+            "Pre-work intent is riskier than the resulting diff; keep the agent constrained by the original "
+            "task risk before authorizing implementation or merge."
+        )
+    elif diff.score > intent.score:
+        summary = (
+            "Post-work diff is riskier than the original intent; treat this as possible scope drift and require "
+            "review at the higher diff risk level."
+        )
+    else:
+        summary = "Intent and diff agree on the autonomy band; use that shared risk level for the workflow gate."
+
+    return GateResult(
+        score=score,
+        band=band,
+        recommended_mode=mode,
+        summary=summary,
+        decision_rule=decision_rule,
+        intent=intent,
+        diff=diff,
+    )
+
+
 def load_config(path: str | Path | None) -> dict[str, object] | None:
     if not path:
         return None
@@ -283,6 +545,21 @@ def _files_with_terms(files: Iterable[ChangedFile], terms: tuple[str, ...]) -> l
         if any(term in text for term in terms):
             matches.append(file.path)
     return matches
+
+
+def _matching_terms(text: str, terms: tuple[str, ...]) -> tuple[str, ...]:
+    matches: list[str] = []
+    for term in terms:
+        if not term:
+            continue
+        escaped = re.escape(term).replace(r"\ ", r"[\s-]+")
+        if re.search(rf"(?<![\w-]){escaped}(?![\w-])", text):
+            matches.append(term)
+    return tuple(matches)
+
+
+def _normalize_text(text: str) -> str:
+    return re.sub(r"\s+", " ", text.lower()).strip()
 
 
 def _has_nested_loop(lines: tuple[str, ...]) -> bool:

@@ -1,0 +1,1 @@
+Refactor the API response cache so repeated search requests reuse cached results, avoid stale responses, and include tests for cache invalidation behavior.

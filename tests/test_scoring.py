@@ -1,7 +1,7 @@
 import unittest
 
 from autonomy_score.diff_parser import parse_unified_diff
-from autonomy_score.scoring import score_change
+from autonomy_score.scoring import combine_intent_and_diff, score_change, score_intent
 
 
 class ScoringTests(unittest.TestCase):
@@ -91,7 +91,47 @@ diff --git a/App/Tests/SearchCacheTests.swift b/App/Tests/SearchCacheTests.swift
 
         self.assertFalse(any(signal.name == "validation:no-tests-in-diff" for signal in result.signals))
 
+    def test_presentation_intent_is_low_risk(self):
+        result = score_intent("Update the SwiftUI profile empty-state copy and button spacing.")
+
+        self.assertLessEqual(result.score, 3)
+        self.assertEqual(result.recommended_mode, "Unsupervised")
+        self.assertTrue(any(signal.name == "intent:presentation-only-cap" for signal in result.signals))
+
+    def test_auth_migration_intent_is_high_risk(self):
+        result = score_intent(
+            "Migrate Core Data schema and update auth token persistence with rollback handling for production data."
+        )
+
+        self.assertGreaterEqual(result.score, 8)
+        self.assertEqual(result.recommended_mode, "Pair Programming")
+        self.assertTrue(any(signal.name == "intent:critical-domain" for signal in result.signals))
+
+    def test_combined_gate_uses_highest_risk(self):
+        intent = score_intent("Update profile copy.")
+        diff = """diff --git a/App/Persistence/Migrations/AddConversationIndexMigration.swift b/App/Persistence/Migrations/AddConversationIndexMigration.swift
+--- /dev/null
++++ b/App/Persistence/Migrations/AddConversationIndexMigration.swift
+@@ -0,0 +1,13 @@
++final class AddConversationIndexMigration {
++    func migrate(context: Context) throws {
++        for conversation in conversations {
++            for message in conversation.messages {
++                message.createdAt = conversation.updatedAt
++            }
++        }
++        try context.save()
++    }
++}
+"""
+        diff_result = score_change(parse_unified_diff(diff))
+
+        gate = combine_intent_and_diff(intent, diff_result)
+
+        self.assertEqual(gate.score, diff_result.score)
+        self.assertEqual(gate.recommended_mode, "Pair Programming")
+        self.assertIn("scope drift", gate.summary)
+
 
 if __name__ == "__main__":
     unittest.main()
-

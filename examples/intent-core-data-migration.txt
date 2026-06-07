@@ -1,0 +1,1 @@
+Migrate the Core Data schema for conversations, backfill existing production data, update token persistence, and support rollback if the migration fails.

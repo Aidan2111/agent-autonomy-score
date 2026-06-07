@@ -1,7 +1,20 @@
 """Autonomy scoring for feedback-driven coding agent pipelines."""
 
-from .scoring import ScoreResult, score_change
+from .scoring import (
+    GateResult,
+    IntentScoreResult,
+    ScoreResult,
+    combine_intent_and_diff,
+    score_change,
+    score_intent,
+)
 
-__all__ = ["ScoreResult", "score_change"]
-__version__ = "0.1.0"
-
+__all__ = [
+    "GateResult",
+    "IntentScoreResult",
+    "ScoreResult",
+    "combine_intent_and_diff",
+    "score_change",
+    "score_intent",
+]
+__version__ = "0.2.0"
