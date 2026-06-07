@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agent-autonomy-score"
+version = "0.1.0"
+description = "Risk scoring for deciding how much supervision AI coding agents need."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Aidan Marshall" }]
+keywords = [
+  "ai-agents",
+  "agentic-sdlc",
+  "code-review",
+  "developer-tools",
+  "risk-scoring"
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Topic :: Software Development :: Quality Assurance"
+]
+dependencies = []
+
+[project.scripts]
+autonomy-score = "autonomy_score.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+

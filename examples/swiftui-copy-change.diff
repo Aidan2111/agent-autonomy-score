@@ -1,0 +1,21 @@
+diff --git a/App/Views/ProfileView.swift b/App/Views/ProfileView.swift
+index 91a7c2d..2f89c71 100644
+--- a/App/Views/ProfileView.swift
++++ b/App/Views/ProfileView.swift
+@@ -18,7 +18,14 @@ struct ProfileView: View {
+         VStack(alignment: .leading, spacing: 12) {
+             Text(user.displayName)
+                 .font(.title2)
+-            Text("Manage your account")
++            Text("Manage your profile and preferences")
++                .font(.subheadline)
++                .foregroundStyle(.secondary)
++
++            Text("Your changes sync across devices.")
++                .font(.caption)
++                .foregroundStyle(.tertiary)
++                .accessibilityLabel("Profile changes sync across devices")
+         }
+         .padding()
+     }
+

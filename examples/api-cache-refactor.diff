@@ -1,0 +1,59 @@
+diff --git a/App/Services/SearchCache.swift b/App/Services/SearchCache.swift
+index 6bd40c1..be8c7de 100644
+--- a/App/Services/SearchCache.swift
++++ b/App/Services/SearchCache.swift
+@@ -1,8 +1,26 @@
+ final class SearchCache {
+-    private var results: [String: [SearchResult]] = [:]
++    private var results: [String: CacheEntry] = [:]
++    private let maxAgeSeconds: TimeInterval = 300
++    private let maxEntries = 250
+ 
+     func get(_ query: String) -> [SearchResult]? {
+-        results[query]
++        guard let entry = results[query] else {
++            return nil
++        }
++        if Date().timeIntervalSince(entry.createdAt) > maxAgeSeconds {
++            results.removeValue(forKey: query)
++            return nil
++        }
++        return entry.results
+     }
+ 
+     func set(_ query: String, results value: [SearchResult]) {
+-        results[query] = value
++        results[query] = CacheEntry(results: value, createdAt: Date())
++        pruneOldestEntries()
++    }
++
++    private func pruneOldestEntries() {
++        guard results.count > maxEntries else {
++            return
++        }
++        let oldest = results.sorted { $0.value.createdAt < $1.value.createdAt }
++        for key in oldest.prefix(results.count - maxEntries).map(\.key) {
++            results.removeValue(forKey: key)
++        }
+     }
+ }
++
++private struct CacheEntry {
++    let results: [SearchResult]
++    let createdAt: Date
++}
+diff --git a/App/Tests/SearchCacheTests.swift b/App/Tests/SearchCacheTests.swift
+new file mode 100644
+index 0000000..da130e8
+--- /dev/null
++++ b/App/Tests/SearchCacheTests.swift
+@@ -0,0 +1,9 @@
++import XCTest
++
++final class SearchCacheTests: XCTestCase {
++    func testReturnsCachedResults() {
++        let cache = SearchCache()
++        cache.set("codex", results: [.fixture()])
++        XCTAssertEqual(cache.get("codex")?.count, 1)
++    }
++}

@@ -1,0 +1,42 @@
+diff --git a/App/Persistence/Migrations/AddConversationIndexMigration.swift b/App/Persistence/Migrations/AddConversationIndexMigration.swift
+new file mode 100644
+index 0000000..d834cb4
+--- /dev/null
++++ b/App/Persistence/Migrations/AddConversationIndexMigration.swift
+@@ -0,0 +1,48 @@
++import CoreData
++
++final class AddConversationIndexMigration {
++    func migrate(context: NSManagedObjectContext) throws {
++        let request = NSFetchRequest<Conversation>(entityName: "Conversation")
++        let conversations = try context.fetch(request)
++
++        for conversation in conversations {
++            for message in conversation.messages {
++                if message.createdAt == nil {
++                    message.createdAt = conversation.updatedAt
++                }
++            }
++        }
++
++        try context.execute(NSBatchDeleteRequest(fetchRequest: oldDraftRequest()))
++        try context.save()
++    }
++
++    private func oldDraftRequest() -> NSFetchRequest<NSFetchRequestResult> {
++        let request = NSFetchRequest<NSFetchRequestResult>(entityName: "DraftMessage")
++        request.predicate = NSPredicate(format: "isSynced == false")
++        return request
++    }
++}
+diff --git a/App/Persistence/Model.xcdatamodeld/contents b/App/Persistence/Model.xcdatamodeld/contents
+index e69de29..56fb392 100644
+--- a/App/Persistence/Model.xcdatamodeld/contents
++++ b/App/Persistence/Model.xcdatamodeld/contents
+@@ -0,0 +1,8 @@
++<model type="com.apple.IDECoreDataModeler.DataModel">
++    <entity name="Conversation">
++        <attribute name="conversationIndex" optional="NO" attributeType="Integer 64"/>
++    </entity>
++</model>
+

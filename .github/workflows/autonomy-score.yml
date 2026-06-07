@@ -1,0 +1,27 @@
+name: Autonomy Score
+
+on:
+  pull_request:
+
+jobs:
+  score:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install scorer
+        run: python -m pip install -e .
+
+      - name: Score pull request diff
+        shell: bash
+        run: |
+          git diff --unified=3 "origin/${{ github.base_ref }}...HEAD" > pr.diff
+          autonomy-score --diff pr.diff --format markdown | tee autonomy-report.md
+          cat autonomy-report.md >> "$GITHUB_STEP_SUMMARY"
+
