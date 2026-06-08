@@ -35,6 +35,8 @@ The key distinction:
 
 ## Quick Start
 
+Requires Python 3.10 or newer.
+
 ```bash
 python -m pip install -e .
 autonomy-score --diff examples/swiftui-copy-change.diff
