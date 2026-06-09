@@ -19,7 +19,7 @@ AI agents are getting good enough to handle real implementation work, but teams 
 This project uses old-school engineering signals as a first pass:
 
 - Intent risk before work: task wording that points to auth, persistence, migrations, broad refactors, unclear scope, or missing validation.
-- Big O risk: nested iteration and algorithm-heavy changes.
+- Complexity-risk heuristic: flags nested iteration and algorithm-heavy changes; it does not determine exact Big-O.
 - Cyclomatic complexity proxy: broad diffs, directory spread, and branching-sensitive areas.
 - Blast radius: state, persistence, auth, pipeline, cache, billing, and migration code.
 - State vs presentation: UI-only changes are usually safer than data mutation and storage changes.
@@ -53,6 +53,21 @@ Score a pull request diff in an existing repo:
 ```bash
 git diff --unified=3 origin/main...HEAD | autonomy-score --format markdown
 ```
+
+Reviewer demo: paste a small code snippet and inspect the signals:
+
+```bash
+cat <<'PY' | autonomy-score --format markdown
+def pairwise_scores(users):
+    scores = []
+    for left in users:
+        for right in users:
+            scores.append((left.id, right.id))
+    return scores
+PY
+```
+
+This is still a heuristic risk signal, not a proof of runtime complexity. It catches obvious nested-iteration cases and highlights algorithmic terms, but recursion, divide-and-conquer, amortized behavior, and library calls need human review.
 
 Score the original intent and the final diff together:
 

@@ -1,0 +1,10 @@
+diff --git a/app/tree_metrics.py b/app/tree_metrics.py
+--- /dev/null
++++ b/app/tree_metrics.py
+@@ -0,0 +1,6 @@
++def count_nodes(tree):
++    if tree is None:
++        return 0
++    left = count_nodes(tree.left)
++    right = count_nodes(tree.right)
++    return 1 + left + right

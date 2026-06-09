@@ -1,0 +1,11 @@
+diff --git a/app/matching.py b/app/matching.py
+--- /dev/null
++++ b/app/matching.py
+@@ -0,0 +1,7 @@
++def pairwise_scores(users):
++    scores = []
++    for left in users:
++        for right in users:
++            if left.id != right.id:
++                scores.append((left.id, right.id))
++    return scores

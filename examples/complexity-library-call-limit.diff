@@ -1,0 +1,7 @@
+diff --git a/app/ranking.py b/app/ranking.py
+--- /dev/null
++++ b/app/ranking.py
+@@ -0,0 +1,4 @@
++def top_users(users):
++    ordered = sorted(users, key=lambda user: user.score, reverse=True)
++    return ordered[:10]

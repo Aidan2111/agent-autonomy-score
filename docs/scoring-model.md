@@ -27,7 +27,7 @@ This matters because a diff only exists after work is done. Intent scoring decid
 | `state-or-persistence` | +2 | State, storage, auth, and pipelines have larger failure modes than presentation code. |
 | `critical-content` | +2 | Migration, transaction, auth, concurrency, and destructive terms deserve stricter oversight. |
 | `algorithmic-risk` | +1 | Algorithms and data-flow changes can hide complexity or performance regressions. |
-| `big-o:nested-loop` | +2 | Nested iteration is a simple proxy for O(N^2) risk. |
+| `big-o:nested-loop` | +2 | Nested iteration is a simple proxy for complexity risk, not a proof of exact Big-O. |
 | `blast-radius:directory-spread` | +1 | A cross-cutting change often needs architectural context. |
 | `validation:no-tests-in-diff` | +1 | Risky production changes without tests should not be fully trusted. |
 | `presentation-only-cap` | 0 | Presentation-only changes are capped at low risk unless stronger signals appear. |
@@ -78,11 +78,20 @@ The default model is conservative, but not universal. Adjust it by team and doma
 
 When using a custom config in CI, load it from a protected source. A pull request should not be able to weaken the scoring policy used to evaluate that same pull request.
 
-## Known Limits
+## Known Complexity Limits
 
-The scorer does not build an AST and does not prove computational complexity. It uses path, content, and task-language heuristics to decide when a human should take a closer look.
+The scorer does not build an AST and does not determine exact Big-O. It uses path, content, and task-language heuristics to decide when a human should take a closer look.
 
 That is deliberate for v0.1. A clear heuristic is easier to tune than a magical score nobody can explain.
+
+Cases that need human interpretation:
+
+- recursion can encode linear, logarithmic, exponential, or tree-shaped work without adding a visible loop.
+- divide-and-conquer code, such as merge sort, can look locally linear while doing O(n log n) work across recursive levels.
+- amortized data structures can make one operation look risky or cheap without the surrounding usage pattern.
+- library calls such as sorting, grouping, query builders, or framework helpers can hide complexity behind one line.
+
+The goal is to flag common complexity patterns and obvious regressions, not to replace algorithm analysis.
 
 ## LLM Advisory Layer
 

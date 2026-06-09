@@ -17,7 +17,7 @@ Teams can use simple software engineering signals to estimate the supervision le
 
 The first version does not need to understand the whole codebase. It can still be useful if it identifies obvious risk:
 
-- Algorithmic complexity, especially nested iteration.
+- Algorithmic risk, especially obvious nested iteration.
 - State, persistence, auth, billing, and pipeline changes.
 - Larger blast radius across files and directories.
 - Risky production changes with no tests.
@@ -59,4 +59,3 @@ The strongest next step is calibration against real data:
 - Human review time per risk band.
 
 That feedback loop can turn the current heuristic into a team-specific autonomy policy.
-
