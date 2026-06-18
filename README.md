@@ -39,13 +39,13 @@ Requires Python 3.10 or newer.
 
 ```bash
 python -m pip install -e .
-autonomy-score --diff examples/swiftui-copy-change.diff
+autonomy-score --diff examples/diffs/swiftui-copy-change.diff
 ```
 
 Score a feature request before an agent starts coding:
 
 ```bash
-autonomy-score --intent examples/intent-core-data-migration.txt
+autonomy-score --intent examples/intents/intent-core-data-migration.txt
 ```
 
 Score a pull request diff in an existing repo:
@@ -72,7 +72,7 @@ This is still a heuristic risk signal, not a proof of runtime complexity. It cat
 Score the original intent and the final diff together:
 
 ```bash
-autonomy-score --intent examples/intent-swiftui-copy.txt --diff examples/core-data-migration.diff
+autonomy-score --intent examples/intents/intent-swiftui-copy.txt --diff examples/diffs/core-data-migration.diff
 ```
 
 Fail a CI step if the diff exceeds your autonomy threshold:
@@ -86,7 +86,7 @@ Add an optional LLM second opinion:
 ```bash
 python -m pip install -e ".[llm]"
 export OPENAI_API_KEY="sk-your-key"
-autonomy-score --diff examples/core-data-migration.diff --llm-analysis
+autonomy-score --diff examples/diffs/core-data-migration.diff --llm-analysis
 ```
 
 On Windows PowerShell:
@@ -94,7 +94,7 @@ On Windows PowerShell:
 ```powershell
 python -m pip install -e ".[llm]"
 $env:OPENAI_API_KEY = "sk-your-key"
-python -m autonomy_score --diff examples\core-data-migration.diff --llm-analysis
+python -m autonomy_score --diff examples\diffs\core-data-migration.diff --llm-analysis
 ```
 
 ## Example Output
@@ -152,10 +152,16 @@ That answers: "Did the implementation stay inside the autonomy envelope?" If the
 
 ## Repo Tour
 
-- `src/autonomy_score/`: CLI, diff parser, and scoring model.
-- `examples/`: sample intents and diffs that demonstrate low, medium, and high risk.
-- `docs/scoring-model.md`: scoring rules and calibration notes.
-- `docs/case-study.md`: product and engineering framing behind the project.
+- `src/autonomy_score/`: importable package with the CLI, diff parser, deterministic scorer, and optional LLM adapter.
+- `tests/`: unit tests plus documentation integrity checks for moved examples and operating docs.
+- `examples/diffs/`: sample PR diffs that demonstrate low, medium, and high risk.
+- `examples/intents/`: pre-work task briefs for intent scoring.
+- `examples/complexity/`: boundary examples for the complexity-risk heuristic.
+- `docs/engineering/architecture.md`: repository structure, package boundaries, and data flow.
+- `docs/operations/runbook.md`: Well-Architected operating lens for reliability, security, cost, operational excellence, and performance.
+- `docs/operations/branching-and-releases.md`: GitHub Flow branch model, recommended `main` protection, and release process.
+- `docs/scoring/model.md`: scoring rules and calibration notes.
+- `docs/product/case-study.md`: product and engineering framing behind the project.
 - `.github/workflows/autonomy-score.yml`: example GitHub Actions integration.
 
 ## Configuration
@@ -201,23 +207,31 @@ This project intentionally does not use Google ADK as a core dependency yet. ADK
 
 ## Development
 
-Run tests:
+Use Python 3.10 or newer. The CI path uses Python 3.12.
+
+Run tests with your active Python:
 
 ```bash
 python -m unittest discover -s tests
 ```
 
+Or run the same version used by CI with `uv`:
+
+```bash
+uv run --python 3.12 --with-editable . python -m unittest discover -s tests
+```
+
 Run the CLI without installing:
 
 ```bash
-PYTHONPATH=src python -m autonomy_score --diff examples/core-data-migration.diff
+PYTHONPATH=src python -m autonomy_score --diff examples/diffs/core-data-migration.diff
 ```
 
 On Windows PowerShell:
 
 ```powershell
 $env:PYTHONPATH = "src"
-python -m autonomy_score --diff examples/core-data-migration.diff
+python -m autonomy_score --diff examples/diffs/core-data-migration.diff
 ```
 
 ## Roadmap

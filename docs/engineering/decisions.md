@@ -4,6 +4,16 @@
 
 A CLI is the smallest useful surface for local development, CI, and pull request automation. It also keeps the project easy to inspect during a portfolio review.
 
+## Keep the `src/` layout
+
+Package code lives under `src/autonomy_score/` instead of the repository root. That keeps importable code separate from docs, examples, tests, and project metadata, and it makes local testing closer to the installed package path.
+
+## Group examples by scoring surface
+
+Examples are split into `examples/diffs/`, `examples/intents/`, and `examples/complexity/`.
+
+Diff and intent fixtures exercise normal product workflows. Complexity fixtures document heuristic limits, including false-negative boundaries that require human interpretation.
+
 ## Parse diffs instead of repositories
 
 The first version scores changed lines and changed paths. That makes it fast, deterministic, and easy to run in CI without indexing an entire codebase.
