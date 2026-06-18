@@ -26,7 +26,7 @@ The LLM can add:
 ```bash
 python -m pip install -e ".[llm]"
 export OPENAI_API_KEY="sk-your-key"
-autonomy-score --diff examples/core-data-migration.diff --llm-analysis
+autonomy-score --diff examples/diffs/core-data-migration.diff --llm-analysis
 ```
 
 Windows PowerShell:
@@ -34,7 +34,7 @@ Windows PowerShell:
 ```powershell
 python -m pip install -e ".[llm]"
 $env:OPENAI_API_KEY = "sk-your-key"
-python -m autonomy_score --diff examples\core-data-migration.diff --llm-analysis
+python -m autonomy_score --diff examples\diffs\core-data-migration.diff --llm-analysis
 ```
 
 Optional settings:
