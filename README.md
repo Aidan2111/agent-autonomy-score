@@ -2,6 +2,8 @@
 
 A lightweight scoring tool for deciding how much supervision AI coding agents need before and after they write code.
 
+Built by [Aidan Marshall](https://aidanmarshall.ai/), a Dallas-based AI engineer focused on agentic AI systems, multi-agent orchestration, and enterprise automation.
+
 The premise is simple: not every code change deserves the same agent workflow. A SwiftUI copy tweak and a Core Data migration should not pass through the same autonomy gate.
 
 This repo turns that idea into a small, inspectable CLI that scores an implementation intent, a code diff, or both from 1 to 10 and recommends one of three modes:
@@ -163,6 +165,12 @@ That answers: "Did the implementation stay inside the autonomy envelope?" If the
 - `docs/scoring/model.md`: scoring rules and calibration notes.
 - `docs/product/case-study.md`: product and engineering framing behind the project.
 - `.github/workflows/autonomy-score.yml`: example GitHub Actions integration.
+
+## Author
+
+- Website: [aidanmarshall.ai](https://aidanmarshall.ai/)
+- GitHub: [Aidan2111](https://github.com/Aidan2111)
+- LinkedIn: [Aidan Marshall](https://www.linkedin.com/in/aidan-marshall77)
 
 ## Configuration
 
