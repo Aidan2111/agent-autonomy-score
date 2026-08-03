@@ -44,6 +44,34 @@ class RepositoryDocumentationTests(unittest.TestCase):
         self.assertIn("GitHub Flow", branching)
         self.assertIn("protected", branching.lower())
 
+    def test_distribution_and_automation_metadata_are_present(self):
+        pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+        test_workflow = (
+            ROOT / ".github" / "workflows" / "autonomy-score.yml"
+        ).read_text(encoding="utf-8")
+        security_workflow = (
+            ROOT / ".github" / "workflows" / "security.yml"
+        ).read_text(encoding="utf-8")
+        dependabot = (ROOT / ".github" / "dependabot.yml").read_text(encoding="utf-8")
+
+        for field in (
+            "[project.urls]",
+            'Homepage = "https://github.com/Aidan2111/agent-autonomy-score"',
+            'Repository = "https://github.com/Aidan2111/agent-autonomy-score"',
+            'Issues = "https://github.com/Aidan2111/agent-autonomy-score/issues"',
+        ):
+            with self.subTest(field=field):
+                self.assertIn(field, pyproject)
+
+        self.assertIn("windows-latest", test_workflow)
+        self.assertIn('python-version: "3.10"', test_workflow)
+        self.assertIn('python-version: "3.12"', test_workflow)
+        self.assertIn("python -m build", test_workflow)
+        self.assertIn("python -m twine check", test_workflow)
+        self.assertIn("pip-audit", security_workflow)
+        self.assertIn("gitleaks", security_workflow)
+        self.assertIn('package-ecosystem: "github-actions"', dependabot)
+
 
 if __name__ == "__main__":
     unittest.main()
