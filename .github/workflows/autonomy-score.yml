@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  test:
+  test-matrix:
     strategy:
       fail-fast: false
       matrix:
@@ -50,6 +50,17 @@ jobs:
           python -m twine check dist/*
           python -c "from pathlib import Path; import subprocess, sys; wheel = next(Path('dist').glob('*.whl')); subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--force-reinstall', '--no-deps', str(wheel)])"
           autonomy-score --help
+
+  # Keep the protected-branch check name stable while requiring every matrix
+  # member, including Windows, to complete successfully.
+  test:
+    name: test
+    needs: test-matrix
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require all test environments to pass
+        run: test "${{ needs.test-matrix.result }}" = "success"
 
   score:
     if: github.event_name == 'pull_request'
