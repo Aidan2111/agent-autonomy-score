@@ -5,10 +5,10 @@ here.
 
 ## Unreleased
 
+## 0.2.0 - 2026-08-23
+
 - Added reproducible GitHub release automation and complete source manifests.
 - Added explicit governance and support documentation.
-
-## 0.2.0 - 2026-06-27
 
 - Added intent scoring and combined intent/diff autonomy gates.
 - Added bounded input handling and optional structured LLM advisory analysis.
