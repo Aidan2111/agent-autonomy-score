@@ -251,6 +251,15 @@ python -m autonomy_score --diff examples/diffs/core-data-migration.diff
 - Add a separate Google ADK demo once the project needs real multi-agent orchestration.
 - Support policy presets for startup, enterprise, regulated, and high-trust teams.
 
+## Project policies
+
+- [Contributing](CONTRIBUTING.md)
+- [Security policy](SECURITY.md)
+- [Support](SUPPORT.md)
+- [Governance](GOVERNANCE.md)
+- [Changelog](CHANGELOG.md)
+- [Release process](docs/operations/branching-and-releases.md)
+
 ## License
 
 MIT

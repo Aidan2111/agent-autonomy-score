@@ -53,6 +53,9 @@ class RepositoryDocumentationTests(unittest.TestCase):
             ROOT / ".github" / "workflows" / "security.yml"
         ).read_text(encoding="utf-8")
         dependabot = (ROOT / ".github" / "dependabot.yml").read_text(encoding="utf-8")
+        release_workflow = (
+            ROOT / ".github" / "workflows" / "release.yml"
+        ).read_text(encoding="utf-8")
 
         for field in (
             "[project.urls]",
@@ -71,6 +74,20 @@ class RepositoryDocumentationTests(unittest.TestCase):
         self.assertIn("pip-audit", security_workflow)
         self.assertIn("gitleaks", security_workflow)
         self.assertIn('package-ecosystem: "github-actions"', dependabot)
+        self.assertIn('tags:', release_workflow)
+        self.assertIn('gh release create', release_workflow)
+
+        for project_file in (
+            "CHANGELOG.md",
+            "CODE_OF_CONDUCT.md",
+            "CONTRIBUTING.md",
+            "GOVERNANCE.md",
+            "LICENSE",
+            "SECURITY.md",
+            "SUPPORT.md",
+        ):
+            with self.subTest(project_file=project_file):
+                self.assertTrue((ROOT / project_file).is_file())
 
 
 if __name__ == "__main__":

@@ -35,6 +35,7 @@ Homepage = "https://github.com/Aidan2111/agent-autonomy-score"
 Repository = "https://github.com/Aidan2111/agent-autonomy-score"
 Issues = "https://github.com/Aidan2111/agent-autonomy-score/issues"
 Documentation = "https://github.com/Aidan2111/agent-autonomy-score#readme"
+Changelog = "https://github.com/Aidan2111/agent-autonomy-score/blob/main/CHANGELOG.md"
 
 [project.scripts]
 autonomy-score = "autonomy_score.cli:main"

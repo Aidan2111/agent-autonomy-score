@@ -63,7 +63,12 @@ git tag vX.Y.Z
 git push origin vX.Y.Z
 ```
 
-6. Attach built artifacts or publish to PyPI only after the release path is intentionally configured.
+6. Pushing a matching `vX.Y.Z` tag runs `.github/workflows/release.yml`, repeats
+   the tests and distribution checks, and creates a GitHub release with the
+   wheel and source archive attached.
+7. Publish to PyPI only after trusted publishing is configured for this
+   repository and the package name. PyPI publication is intentionally separate
+   from the GitHub release until that one-time external configuration exists.
 
 ## Direct Push Exception
 
