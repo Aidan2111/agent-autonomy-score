@@ -70,6 +70,23 @@ git push origin vX.Y.Z
    repository and the package name. PyPI publication is intentionally separate
    from the GitHub release until that one-time external configuration exists.
 
+### PyPI trusted publishing
+
+`.github/workflows/publish-pypi.yml` is deliberately manual. It accepts a tag,
+checks that the checkout is exactly at that tag, verifies that the tag matches
+the version in `pyproject.toml`, runs the tests, rebuilds the distributions, and
+uses OpenID Connect to publish them. It has no push, tag, or release trigger.
+
+Before the first publication, a maintainer must create the project (or pending
+publisher) on PyPI and register this repository, the `publish-pypi.yml`
+workflow, and the `pypi` environment as a trusted publisher. No long-lived API
+token belongs in GitHub secrets. After that one-time setup, dispatch **Publish
+to PyPI** with an existing release tag such as `v0.2.0`.
+
+Treat the GitHub release as the source of truth until the first PyPI workflow
+finishes successfully. Do not add a PyPI badge or `pip install
+agent-autonomy-score` instructions before then.
+
 ## Direct Push Exception
 
 Direct pushes to `main` should be limited to emergency documentation or metadata fixes. If used, run the same local verification commands and follow up with a normal PR if code or scoring policy changed.

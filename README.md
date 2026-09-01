@@ -1,5 +1,11 @@
 # Agent Autonomy Score
 
+[![Tests](https://github.com/Aidan2111/agent-autonomy-score/actions/workflows/autonomy-score.yml/badge.svg?branch=main)](https://github.com/Aidan2111/agent-autonomy-score/actions/workflows/autonomy-score.yml)
+[![Security](https://github.com/Aidan2111/agent-autonomy-score/actions/workflows/security.yml/badge.svg?branch=main)](https://github.com/Aidan2111/agent-autonomy-score/actions/workflows/security.yml)
+[![Release](https://img.shields.io/github/v/release/Aidan2111/agent-autonomy-score)](https://github.com/Aidan2111/agent-autonomy-score/releases/latest)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](pyproject.toml)
+
 A lightweight scoring tool for deciding how much supervision AI coding agents need before and after they write code.
 
 Built by [Aidan Marshall](https://aidanmarshall.ai/), a Dallas-based AI engineer focused on agentic AI systems, multi-agent orchestration, and enterprise automation.
@@ -39,9 +45,31 @@ The key distinction:
 
 Requires Python 3.10 or newer.
 
+### Install for use
+
+Install the current tagged wheel directly from the GitHub release. This does
+not create an editable checkout:
+
 ```bash
+python -m pip install \
+  https://github.com/Aidan2111/agent-autonomy-score/releases/download/v0.2.0/agent_autonomy_score-0.2.0-py3-none-any.whl
+```
+
+For a first run outside a clone, pipe a diff directly to the command:
+
+```bash
+git diff --unified=3 origin/main...HEAD | autonomy-score --format markdown
+```
+
+### Contributor setup
+
+Use an editable install only when changing the project:
+
+```bash
+git clone https://github.com/Aidan2111/agent-autonomy-score.git
+cd agent-autonomy-score
 python -m pip install -e .
-autonomy-score --diff examples/diffs/swiftui-copy-change.diff
+python -m unittest discover -s tests
 ```
 
 Score a feature request before an agent starts coding:
