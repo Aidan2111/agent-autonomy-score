@@ -7,6 +7,30 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class RepositoryDocumentationTests(unittest.TestCase):
+    def test_public_onboarding_and_manual_publish_contract(self):
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+
+        for marker in (
+            "actions/workflows/autonomy-score.yml/badge.svg",
+            "actions/workflows/security.yml/badge.svg",
+            "releases/latest",
+            "License-MIT",
+            "Python-3.10%2B",
+            "Install for use",
+            "Contributor setup",
+        ):
+            with self.subTest(marker=marker):
+                self.assertIn(marker, readme)
+
+        publish_path = ROOT / ".github" / "workflows" / "publish-pypi.yml"
+        self.assertTrue(publish_path.is_file())
+        publish = publish_path.read_text(encoding="utf-8")
+        self.assertIn("workflow_dispatch:", publish)
+        self.assertNotIn("release:\n", publish)
+        self.assertIn("id-token: write", publish)
+        self.assertIn("Verify requested tag", publish)
+        self.assertIn("pypa/gh-action-pypi-publish", publish)
+
     def test_referenced_example_files_exist(self):
         documents = [
             ROOT / "README.md",
